@@ -1,0 +1,25 @@
+garage_freeze:
+  module: garage_freeze
+  class: GarageFreeze
+  constrain_input_boolean: input_boolean.enable_automatiion_resistors
+  min_temperature: input_number.temperature_activation_resistances
+  weather: weather.your_town
+  resistor_switchs: switch.resistor1,switch.resistor2
+
+home_alarm:
+  module: home_alarm
+  class: HomeAlarm
+  constrain_input_boolean: input_boolean.enable_automation_alarm
+  isolated_room_presence_input: input_boolean.someone_in_room
+  other_rooms_inputs: 
+  state_away: armed_away
+  state_disarmed: disarmed
+  state_home: armed_home
+  state_night: custom1
+  state_isolated: custom2
+  service_away: alarm_control_panel/alarm_arm_away
+  service_home: alarm_control_panel/alarm_arm_home
+  service_night: eufy_security/alarm_arm_custom1
+  service_isolated: eufy_security/alarm_arm_custom2
+  night_mode_start_at: input_datetime.night_mode_start
+  night_mode_end_at: input_datetime.night_mode_end
