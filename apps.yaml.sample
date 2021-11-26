@@ -3,7 +3,7 @@ garage_freeze:
   class: GarageFreeze
   constrain_input_boolean: input_boolean.enable_automatiion_resistors
   min_temperature: input_number.temperature_activation_resistances
-  weather: weather.your_town
+  temperature_sensor: sensor.outdoor_temperature
   resistor_switchs: switch.resistor1,switch.resistor2
 
 home_alarm:

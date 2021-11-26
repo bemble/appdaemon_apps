@@ -4,7 +4,7 @@ import datetime
 #
 # Handle home alarm
 #
-# Cases:
+# Scenarios:
 #
 # Persons | Presence in   | Presence in | Alarm mode #
 # at home | isolated room | other rooms |            #

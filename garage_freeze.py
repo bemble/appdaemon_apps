@@ -4,7 +4,7 @@ import hassapi as hass
 # Garage freeze
 # Start the pipe heat resistors when temperature is too cold, stop when heat is OK.
 #
-# Cases:
+# Scenarios:
 #
 # Temperature | Switch # 
 #----------------------#
@@ -14,7 +14,7 @@ import hassapi as hass
 # Args:
 #
 # min_temperature = input_number, temperature threshold to trigger the resistors switch (inclusive)
-# weather = weather entity, home weather
+# temperature_sensor = sensor entity, out temperature sensor
 # resistor_switchs = switch entities, switch to toggle
 #
 
@@ -22,18 +22,15 @@ class GarageFreeze(hass.Hass):
     def initialize(self):
         self.min = self.get_state(self.args["min_temperature"], attribute="min")
         self.listen_state(self.min_temperature_changed, self.args["min_temperature"], immediate=True)
-        self.run_every(self.temperature_changed, "now", 10 * 60)
+        self.listen_state(self.temperature_changed, self.args["temperature_sensor"], immediate=True)
 
     def min_temperature_changed(self, entity, attribute, old, new, kwargs):
         self.min = float(new)
         self.log("Resistors will be started when temperature <= {} and stopped when above.".format(self.min))
-        self.temperature_changed(kwargs)
 
-    def temperature_changed(self, kwargs):
-        actual_temp = self.get_state(self.args["weather"], attribute="temperature")
-
-        if actual_temp != None:
-            should_enable = actual_temp <= self.min
+    def temperature_changed(self, entity, attribute, old, new, kwargs):
+        if new != None:
+            should_enable = float(new) <= self.min
     
             new_state = None
             if should_enable == True:
@@ -47,4 +44,3 @@ class GarageFreeze(hass.Hass):
                     if old_state != new_state:
                         self.log("Turn {} {}".format(resistor_switch, new_state))
                         self.set_state(resistor_switch, state=new_state)
-        
