@@ -1,17 +1,42 @@
+presence_room_1:
+  module: presence_in_room
+  class: PresenceInRoom
+  constrain_input_boolean: input_boolean.enable_automation_presence_room_1
+  isolated_room_presence_input: input_boolean.presence_room_1
+  sensors: binary_sensor.vibration_1,binary_sensor.motion_1
+
 garage_freeze:
   module: garage_freeze
   class: GarageFreeze
-  constrain_input_boolean: input_boolean.enable_automatiion_resistors
-  min_temperature: input_number.temperature_activation_resistances
+  constrain_input_boolean: input_boolean.enable_automation_resistors
+  min_temperature: input_number.temperature_activation_resistors
   temperature_sensor: sensor.outdoor_temperature
   resistor_switchs: switch.resistor1,switch.resistor2
+
+heating_room_1:
+  module: heating_isolated_room
+  class: HeatingIsolatedRoom
+  constrain_input_boolean: input_boolean.enable_automation_heating_room_1
+  ref_climate: climate.home
+  temperature_when_nobody: input_number.temperature_nobody_room_1
+  temperature_sensor: sensor.temperature_room_1
+  heater_switch: switch.on_off_heater_room_1
+  presence_input: input_boolean.presence_room_1
+
+heating_home:
+  module: home_heating
+  class: HomeHeating
+  constrain_input_boolean: input_boolean.enable_automation_heating_home
+  ref_climate: climate.home
+  presence_in_isolated_rooms_inputs: input_boolean.presence_room_1
+  presence_in_other_rooms_inputs:
 
 home_alarm:
   module: home_alarm
   class: HomeAlarm
   constrain_input_boolean: input_boolean.enable_automation_alarm
-  isolated_room_presence_input: input_boolean.someone_in_room
-  other_rooms_inputs: 
+  presence_in_isolated_rooms_inputs: input_boolean.someone_in_room
+  presence_in_other_rooms_inputs: 
   state_away: armed_away
   state_disarmed: disarmed
   state_home: armed_home
