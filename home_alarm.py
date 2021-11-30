@@ -9,15 +9,15 @@ import datetime
 # Persons | Presence in   | Presence in | Alarm mode #
 # at home | isolated room | other rooms |            #
 #----------------------------------------------------#
-# 0       | 0/1           | 0/1         | away       #
+# 0       | *             | *           | away       #
 # 1+      | 0             | 1           | home|night #
 # 1+      | 1             | 0           | isolated   #
 # 1+      | 1             | 1           | home|night #
 #
 # Args:
 #
-# isolated_room_presence_input = input_boolean entity, entity used to detect if someone is in the isolated room.
-# other_rooms_inputs = input_boolean entity list, other room presence
+# presence_in_isolated_rooms_inputs = input_boolean entity list, entities used to detect if someone is in the isolated rooms
+# presence_in_other_rooms_inputs = input_boolean entity list, presence in other rooms, if none given, check that number of person at home > isolated room count
 # state_away = string, state expected when away
 # state_disarmed = string, state expected when disarmed
 # state_home = string, state expected when at home
@@ -31,6 +31,7 @@ import datetime
 # night_mode_end_at = input_datetime entity, time when night mode should be stopped
 
 # TODO: handle manual change (go out of home before start time, someone stays at home, should be disabled to prevent alarm when opening the door)
+# TODO: delete duplicate code for presence etc
 
 class HomeAlarm(hass.Hass):
     def initialize(self):
@@ -43,10 +44,14 @@ class HomeAlarm(hass.Hass):
         for person in self.get_state("person"):
             self.listen_state(self.on_change, person)
 
-        for room_input in self.split_device_list(self.args["other_rooms_inputs"]):
-            self.listen_state(self.on_change, room_input)
+        other_rooms = self.args["presence_in_other_rooms_inputs"]
+        if other_rooms != None:
+            for room in self.split_device_list(other_rooms):
+                self.listen_state(self.on_change, room)
 
-        self.listen_state(self.on_change, self.args["isolated_room_presence_input"], immediate=True)
+        isolated_rooms = self.split_device_list(self.args["presence_in_isolated_rooms_inputs"])
+        for room in isolated_rooms:
+            self.listen_state(self.on_change, room, immediate=(room == isolated_rooms[-1]))
 
     def on_change_time(self, entity, attribute, old, new, kwargs):
         if self.handle_start_at != None:
@@ -69,11 +74,11 @@ class HomeAlarm(hass.Hass):
         self.handle_change()
 
     def handle_change(self):
-        person_at_home_count = self.get_person_count_at_home()
+        is_someone_at_home = self.is_someone_at_home()
         
         new_panel_state = None
         service_to_call = None
-        if person_at_home_count == 0:
+        if is_someone_at_home == False:
             new_panel_state = self.args["state_away"]
             service_to_call = self.args["service_away"]
         else:
@@ -82,13 +87,11 @@ class HomeAlarm(hass.Hass):
             service_to_call = self.args["service_home"]
 
             # Handle isolated
-            is_isolated = self.get_state(self.args["isolated_room_presence_input"]) == "on"
-            if is_isolated and person_at_home_count == 1:
-                other_room_presence_count = self.get_person_count_in_not_isolated_rooms()
-
-                if other_room_presence_count == 0 and self.is_night():
-                    new_panel_state = self.args["state_isolated"]
-                    service_to_call = self.args["service_isolated"]
+            is_someone_in_other_rooms = self.is_someone_in_other_rooms()
+            is_someone_in_isolated_rooms = self.is_someone_in_isolated_rooms()
+            if is_someone_in_isolated_rooms and is_someone_in_other_rooms == False:
+                new_panel_state = self.args["state_isolated"]
+                service_to_call = self.args["service_isolated"]
 
             # Handle night
             if new_panel_state == self.args["state_home"] and self.is_night():
@@ -109,25 +112,47 @@ class HomeAlarm(hass.Hass):
             if len(panels_to_change) > 0:
                 self.call_service(service_to_call, entity_id=panels_to_change)
 
-    def get_person_count_at_home(self):
+    def is_someone_at_home(self):
         persons = self.get_state("person")
-        person_at_home_count = 0
         for person in persons:
             is_at_home = self.get_state(person) == "home"
             if is_at_home:
-                person_at_home_count += 1
-        
-        return person_at_home_count
+                return True
 
-    def get_person_count_in_not_isolated_rooms(self):
-        other_room_presence_count = 0
-        if self.args["other_rooms_inputs"]:
-            for room_input in self.split_device_list(self.args["other_rooms_inputs"]):
-                is_in_room = self.get_state(room_input) == "on"
-                if is_in_room:
-                    other_room_presence_count += 1
+        return False
+
+    def is_someone_in_isolated_rooms(self):
+        for room in self.split_device_list(self.args["presence_in_isolated_rooms_inputs"]):
+            is_in_room = self.get_state(room) == "on"
+            if is_in_room:
+                return True
         
-        return other_room_presence_count
+        return False
+
+    def is_someone_in_other_rooms(self):
+        other_rooms = self.args["presence_in_other_rooms_inputs"]
+        if other_rooms != None:
+            for room in self.split_device_list(other_rooms):
+                is_in_room = self.get_state(room) == "on"
+                if is_in_room:
+                    return True
+        else:
+            persons = self.get_state("person")
+            person_count = 0
+            for person in persons:
+                is_at_home = self.get_state(person) == "home"
+                if is_at_home:
+                    person_count += 1
+
+            isolated_rooms = self.split_device_list(self.args["presence_in_isolated_rooms_inputs"])
+            isolated_rooms_presence_count = 0
+            for room in isolated_rooms:
+                is_in_room = self.get_state(room) == "on"
+                if is_in_room:
+                    isolated_rooms_presence_count += 1
+
+            return person_count > isolated_rooms_presence_count
+        return False
 
     def is_night(self):
         start_at = self.get_state(self.args["night_mode_start_at"])
