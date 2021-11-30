@@ -4,7 +4,7 @@ import hassapi as hass
 # Garage freeze
 # Start the pipe heat resistors when temperature is too cold, stop when heat is OK.
 #
-# Scenarios:
+# Cases:
 #
 # Temperature | Switch # 
 #----------------------#
@@ -15,20 +15,25 @@ import hassapi as hass
 #
 # min_temperature = input_number, temperature threshold to trigger the resistors switch (inclusive)
 # temperature_sensor = sensor entity, out temperature sensor
-# resistor_switchs = switch entities, switch to toggle
+# resistor_switchs = switch entity list, switch to toggle
 #
 
 class GarageFreeze(hass.Hass):
     def initialize(self):
         self.min = self.get_state(self.args["min_temperature"], attribute="min")
         self.listen_state(self.min_temperature_changed, self.args["min_temperature"], immediate=True)
-        self.listen_state(self.temperature_changed, self.args["temperature_sensor"], immediate=True)
+        self.listen_state(self.on_change, self.args["temperature_sensor"], immediate=True)
 
     def min_temperature_changed(self, entity, attribute, old, new, kwargs):
         self.min = float(new)
         self.log("Resistors will be started when temperature <= {} and stopped when above.".format(self.min))
+        self.handle_change()
 
-    def temperature_changed(self, entity, attribute, old, new, kwargs):
+    def on_change(self, entity, attribute, old, new, kwargs):
+        self.handle_change()
+
+    def handle_change(self):
+        new = self.get_state(self.args["temperature_sensor"])
         if new != None:
             should_enable = float(new) <= self.min
     
@@ -43,4 +48,8 @@ class GarageFreeze(hass.Hass):
                     old_state = self.get_state(resistor_switch)
                     if old_state != new_state:
                         self.log("Turn {} {}".format(resistor_switch, new_state))
-                        self.set_state(resistor_switch, state=new_state)
+                        if new_state == "on":
+                            self.turn_on(resistor_switch)
+                        else:
+                            self.turn_off(resistor_switch) 
+        
